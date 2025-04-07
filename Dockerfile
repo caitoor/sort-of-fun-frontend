@@ -2,7 +2,8 @@
 FROM node:22 as build-stage
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm install
+RUN npm install @rollup/rollup-linux-x64-gnu
 COPY . .
 RUN npm run build
 
