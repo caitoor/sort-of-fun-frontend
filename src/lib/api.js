@@ -1,5 +1,5 @@
 // frontend/src/lib/api.js - Handles API requests to the MongoDB backend
-const API_BASE = "http://localhost:3000/api";
+const API_BASE = "https://boardgames-api.sweavs.de";
 
 /**
  * Fetch all games with merged player ratings.
