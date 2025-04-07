@@ -1,8 +1,8 @@
 # frontend Dockerfile
-FROM node:latest as build-stage
+FROM node:21 as build-stage
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 COPY . .
 RUN npm run build
 
