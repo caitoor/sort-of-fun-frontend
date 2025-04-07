@@ -1,0 +1,5 @@
+- implement user ratings and use them instead of BGG ratings where possible.
+- add a flag whether a game has already been played or not.
+- implement age recommendations
+- refresh existing data regularly without overusing the BGG API
+- add friends with their own bgg usernames and optionally add their games to the list
