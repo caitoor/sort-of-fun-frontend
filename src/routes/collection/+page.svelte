@@ -53,7 +53,7 @@
       }
       const data = await response.json();
       status = "done";
-      refreshMessage = `Refresh complete. (${data.newGamesCount} new games)`;
+      refreshMessage = `Refresh complete. (${data.newGamesCount || 0} new games)`;
       // Lade Spiele im Anschluss neu
       await fetchAndLoadGames();
     } catch (error) {
