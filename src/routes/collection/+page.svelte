@@ -66,9 +66,26 @@
   function closeModal() {
     showRefreshModal = false;
   }
+
+  async function manualUpdate() {
+    try {
+      const res = await fetch(`${API_BASE}/games/manual-update`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Manual update failed");
+      alert("Manual update triggered");
+    } catch (e) {
+      console.error(e);
+      alert("Manual update failed");
+    }
+  }
 </script>
 
-<button on:click={refreshBGGData}>Refresh Collection</button>
+<button on:click={refreshBGGData}>&#8635; update collection</button>
+
+<!--
+<button on:click={manualUpdate}> Trigger Manual Update </button> 
+-->
 
 {#if $loading}
   <div class="loading-container">
