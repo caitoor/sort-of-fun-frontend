@@ -1,25 +1,33 @@
-<script>
-    // IMPORTS
+<!-- src/routes/+page.svelte -->
 
-    // general
+<script>
+    // general imports
     import { onMount } from "svelte";
     import { get } from "svelte/store";
 
-    // stores
-    import { fetchAndLoadGames, loading, sortedGames } from "$lib/stores/gameStore.js";
-    import { loadThemesForGames } from "$lib/stores/themeStore";
+    // games store: load & reactive sorted list + loading flag
+    import {
+        fetchAndLoadGames,
+        loading,
+        sortedGames,
+    } from "$lib/stores/gameStore.js";
+
+    // tags store: load tags for all games (autocomplete + per‑game tags)
+    import { loadTagsForGames } from "$lib/stores/tagStore.js";
 
     // components
     import GameFilter from "$lib/components/GameFilter.svelte";
     import GameTable from "$lib/components/GameTable.svelte";
     import Loader from "$lib/components/Loader.svelte";
 
+    // on mount: fetch games & then load all their tags
     onMount(async () => {
         await fetchAndLoadGames();
-        await loadThemesForGames(get(sortedGames));
+        await loadTagsForGames(get(sortedGames));
     });
 </script>
 
+<!-- filter panel above the table -->
 <GameFilter />
 
 {#if $loading}

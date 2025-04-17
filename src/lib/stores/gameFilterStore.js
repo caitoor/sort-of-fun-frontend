@@ -1,80 +1,138 @@
+// src/lib/stores/gameFilterStore.js
+
 import { writable, derived } from "svelte/store";
 import { MAX_PLAYTIME } from "./generalStore";
 import { getEstimatedPlaytime } from "$lib/utils.js";
 import { games } from "$lib/stores/gameStore.js";
-import { getPlaytimeCoefficient, getComplexityCoefficient, getPlayerCountCoefficient } from "$lib/gameScorer.js";
-// Importiere den Themes-Store, um die Tags pro Spiel abzugleichen
-import { themes } from "$lib/stores/themeStore.js";
+import {
+  getPlaytimeCoefficient,
+  getComplexityCoefficient,
+  getPlayerCountCoefficient
+} from "$lib/gameScorer.js";
+// Import the tags store for per‐game tags lookup
+import { tags } from "$lib/stores/tagStore.js";
 
-// Filter-Optionen
+// Filter options
 export const playerCount = writable(null);
 export const minComplexity = writable(1);
 export const maxComplexity = writable(5);
 export const minPlaytime = writable(10);
 export const maxPlaytime = writable(MAX_PLAYTIME);
-export const requiredTags = writable([]); // Spiele müssen diese Tags besitzen
-export const excludedTags = writable([]); // Spiele mit diesen Tags werden ausgeschlossen
-export const desiredTags = writable([]);  // Spiele mit diesen Tags erhalten einen Rating-Multiplikator
+export const requiredTags = writable([]);  // games must have all of these tags
+export const excludedTags = writable([]);  // games with any of these tags are excluded
+export const desiredTags = writable([]);   // games with these tags get a score boost
 
-// Derived store: Wendet Filter reaktiv an.
-// Nun wird zusätzlich anhand der Tags gefiltert:
+/**
+ * Derived store: applies all filters reactively,
+ * including tag‐based inclusion/exclusion and score boost for desired tags.
+ */
 export const filteredGames = derived(
-  [games, playerCount, minComplexity, maxComplexity, minPlaytime, maxPlaytime, requiredTags, desiredTags, excludedTags, themes],
-  ([$games, $playerCount, $minComplexity, $maxComplexity, $minPlaytime, $maxPlaytime, $requiredTags, $desiredTags, $excludedTags, $themes]) => {
+  [
+    games,
+    playerCount,
+    minComplexity,
+    maxComplexity,
+    minPlaytime,
+    maxPlaytime,
+    requiredTags,
+    desiredTags,
+    excludedTags,
+    tags
+  ],
+  (
+    [
+      $games,
+      $playerCount,
+      $minComplexity,
+      $maxComplexity,
+      $minPlaytime,
+      $maxPlaytime,
+      $requiredTags,
+      $desiredTags,
+      $excludedTags,
+      $tags
+    ]
+  ) => {
     if (!$games.length) return [];
 
     return $games
-      // Erstes Filter: Spieleranzahl
+      // 1) Filter out games by player count and tag inclusion/exclusion
       .filter(game => {
-        if ($playerCount && (game.minPlayers > $playerCount || game.maxPlayers < $playerCount)) {
+        // check player count range
+        if (
+          $playerCount &&
+          (game.minPlayers > $playerCount || game.maxPlayers < $playerCount)
+        ) {
           return false;
         }
-        // Hole die Tags des Spiels aus dem Spielobjekt oder aus dem globalen themes-Store
-        const gameTags = game.themes ? game.themes : ($themes[game.bggId] || []);
-        // Filter für "benötigte Tags": Alle in $requiredTags müssen in gameTags vorhanden sein (case-insensitive)
+
+        // get tags for this game (from the tags store)
+        const gameTags = $tags[game.bggId] || [];
+
+        // requiredTags: every tag in $requiredTags must appear in gameTags
         if ($requiredTags.length > 0) {
-          for (const reqTag of $requiredTags) {
-            if (!gameTags.some(tag => tag.toLowerCase() === reqTag.toLowerCase())) {
+          for (const req of $requiredTags) {
+            if (!gameTags.some(t => t.toLowerCase() === req.toLowerCase())) {
               return false;
             }
           }
         }
-        // Filter für "auszuschließende Tags": Falls ein ausgeschlossener Tag in gameTags enthalten ist, Spiel verwerfen
+
+        // excludedTags: if any excluded tag is in gameTags, drop the game
         if ($excludedTags.length > 0) {
-          for (const exTag of $excludedTags) {
-            if (gameTags.some(tag => tag.toLowerCase() === exTag.toLowerCase())) {
+          for (const ex of $excludedTags) {
+            if (gameTags.some(t => t.toLowerCase() === ex.toLowerCase())) {
               return false;
             }
           }
         }
+
         return true;
       })
-      // Danach: Score berechnen und "gewünschte" Tags berücksichtigen
+      // 2) Compute score including complexity, playtime, playerCount, and desiredTags boost
       .map(game => {
         let score = game.bggRating || 0;
         let factor = 1;
-        const estimatedPlaytime = getEstimatedPlaytime(game, $playerCount);
-        const complexityFactor = getComplexityCoefficient(game.complexity, $minComplexity, $maxComplexity);
-        const playtimeFactor = getPlaytimeCoefficient(estimatedPlaytime, $minPlaytime, $maxPlaytime);
-        const playerCountFactor = getPlayerCountCoefficient(game, game.playerRatings || [], $playerCount);
+
+        // base coefficients
+        const estimated = getEstimatedPlaytime(game, $playerCount);
+        const complexityFactor = getComplexityCoefficient(
+          game.complexity,
+          $minComplexity,
+          $maxComplexity
+        );
+        const playtimeFactor = getPlaytimeCoefficient(
+          estimated,
+          $minPlaytime,
+          $maxPlaytime
+        );
+        const playerCountFactor = getPlayerCountCoefficient(
+          game,
+          game.playerRatings || [],
+          $playerCount
+        );
         factor *= complexityFactor * playtimeFactor * playerCountFactor;
-        // Hole die Tags des Spiels
-        const gameTags = game.themes ? game.themes : ($themes[game.bggId] || []);
-        // Zähle, wie oft ein "gewünschter" Tag vorkommt und multipliziere den Score entsprechend
-        let desiredCount = 0;
+
+        // tag‐based boost for desiredTags
+        const gameTags = $tags[game.bggId] || [];
+        let boostCount = 0;
         if ($desiredTags.length > 0) {
-          for (const desTag of $desiredTags) {
-            if (gameTags.some(tag => tag.toLowerCase() === desTag.toLowerCase())) {
-              desiredCount++;
+          for (const des of $desiredTags) {
+            if (gameTags.some(t => t.toLowerCase() === des.toLowerCase())) {
+              boostCount++;
             }
           }
         }
-        if (desiredCount > 0) {
-          factor *= Math.pow(1.1, desiredCount);
+        if (boostCount > 0) {
+          // multiply factor by 1.25 for each desired tag found
+          factor *= Math.pow(1.25, boostCount);
         }
-        score *= Math.max(factor, 0.1); // Score nicht unter 10% des Originals
+
+        score *= Math.max(factor, 0.1); // ensure at least 10% of original rating
+
         return { ...game, score };
       })
+      // 3) sort descending by score
       .sort((a, b) => b.score - a.score);
   }
 );

@@ -1,4 +1,5 @@
 // src/lib/gameScorer.js
+// Handles scoring and rating calculations for games
 
 import { MAX_PLAYTIME } from "./stores/generalStore";
 

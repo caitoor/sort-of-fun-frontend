@@ -1,6 +1,5 @@
 <!-- src/lib/components/Modal.svelte -->
 <script>
-    // The generic modal component.
     // Props:
     // - visible: Boolean flag to control modal visibility.
     // - onClose: Function to be called when the backdrop is clicked.

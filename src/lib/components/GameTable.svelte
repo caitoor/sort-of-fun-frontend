@@ -1,17 +1,21 @@
+<!-- src/lib/components/GameTable.svelte -->
 <script>
     import { filteredGames, playerCount } from "$lib/stores/gameFilterStore.js";
-    import { themes } from "$lib/stores/themeStore.js";
+    import { tags } from "$lib/stores/tagStore.js";
     import {
         formatBestPlayerCounts,
         formatPlayerCountRange,
         decodeEntities,
     } from "$lib/utils.js";
 
+    /**
+     * Estimate playtime for a given player count
+     */
     function estimatePlaytime(game) {
         const { minPlayers, maxPlayers, minPlaytime, maxPlaytime } = game;
 
         if (minPlaytime === maxPlaytime) {
-            return null; // No range, just use max playtime
+            return null;
         }
 
         if (
@@ -19,7 +23,7 @@
             $playerCount < minPlayers ||
             $playerCount > maxPlayers
         ) {
-            return Math.round((minPlaytime + maxPlaytime) / 2); // No specific player count -> return average playtime
+            return Math.round((minPlaytime + maxPlaytime) / 2);
         }
 
         const factor = ($playerCount - minPlayers) / (maxPlayers - minPlayers);
@@ -27,7 +31,6 @@
     }
 </script>
 
-<!-- svelte-ignore a11y_label_has_associated_control -->
 <table>
     <thead>
         <tr>
@@ -54,10 +57,10 @@
                     <span class="year-published"
                         >({game.yearPublished || ""})</span
                     >
-                    {#if $themes[game.bggId]?.length}
-                        <div class="game-themes">
-                            {#each $themes[game.bggId] as theme}
-                                <span class="theme-tag">{theme}</span>
+                    {#if $tags[game.bggId]?.length}
+                        <div class="game-tags">
+                            {#each $tags[game.bggId] as tag}
+                                <span class="tag-item">{tag}</span>
                             {/each}
                         </div>
                     {/if}
@@ -107,6 +110,7 @@
                         {/if}
                     </div>
                 </td>
+
                 <td>
                     {#if game.thumbnail}
                         <img
@@ -122,12 +126,12 @@
 </table>
 
 <style>
-    .game-themes {
+    .game-tags {
         font-size: 12px;
         margin-top: 4px;
     }
 
-    .theme-tag {
+    .tag-item {
         background: #444;
         color: white;
         padding: 2px 6px;

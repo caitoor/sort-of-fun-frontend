@@ -1,3 +1,5 @@
+// src/lib/stores/generalStore.js
+
 import { writable } from "svelte/store";
 
 export const MAX_PLAYTIME = 180;

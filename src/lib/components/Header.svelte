@@ -1,3 +1,4 @@
+<!-- src/lib/components/Header.svelte -->
 <script>
     import { page } from "$app/stores";
 

@@ -1,12 +1,6 @@
+<!-- src/lib/components/GameFilter.svelte -->
 <script>
-  // Diese Komponente steuert die Filterung der Spielesammlung.
-  // Neben den numerischen Filtern (Spieleranzahl, Komplexität, Spielzeit)
-  // werden nun auch Filter-Tags unterstützt:
-  // - "benötigte Tags": Nur Spiele, die diesen Tag besitzen, werden angezeigt.
-  // - "gewünschte Tags": Spiele mit diesem Tag erhalten einen Rating-Multiplikator.
-  // - "auszuschließende Tags": Spiele mit diesem Tag werden ausgeschlossen.
-  //
-  // Die Tag-Eingabe erfolgt über die TagSelector-Komponente.
+  // Import numeric filter stores
   import {
     playerCount,
     minComplexity,
@@ -17,42 +11,52 @@
     desiredTags,
     excludedTags,
   } from "$lib/stores/gameFilterStore.js";
-  import { MAX_PLAYTIME } from "$lib/stores/generalStore";
-  import RangeSlider from "svelte-range-slider-pips";
-  import TagSelector from "$lib/components/TagSelector.svelte";
-  import { allThemes } from "$lib/stores/themeStore.js";
 
-  // Lokale Werte für die Range-Slider
+  import { MAX_PLAYTIME } from "$lib/stores/generalStore.js";
+  import RangeSlider from "svelte-range-slider-pips";
+
+  // Generic tag selector component
+  import TagSelector from "$lib/components/TagSelector.svelte";
+  // Store of all existing tags for autocomplete
+  import { allTags } from "$lib/stores/tagStore.js";
+
+  // Local slider state
   let complexityRange = [1, 5];
   let playtimeRange = [10, MAX_PLAYTIME];
 
-  // Aktualisiert den Complexity-Store anhand des Sliderwerts
-  function updateComplexityRange(value) {
-    complexityRange = value.detail.values;
+  /**
+   * Update complexity bounds in store
+   */
+  function updateComplexityRange(event) {
+    complexityRange = event.detail.values;
     minComplexity.set(complexityRange[0]);
     maxComplexity.set(complexityRange[1]);
   }
 
-  // Aktualisiert den Playtime-Store anhand des Sliderwerts
-  function updatePlaytimeRange(value) {
-    playtimeRange = value.detail.values;
+  /**
+   * Update playtime bounds in store
+   */
+  function updatePlaytimeRange(event) {
+    playtimeRange = event.detail.values;
     minPlaytime.set(playtimeRange[0]);
     maxPlaytime.set(playtimeRange[1]);
   }
 
-  // Funktionen zum Hinzufügen/Entfernen der Filter-Tags
+  // Functions to add/remove filter tags
   function addRequiredTag(tag) {
     requiredTags.update((tags) => (tags.includes(tag) ? tags : [...tags, tag]));
   }
   function removeRequiredTag(tag) {
     requiredTags.update((tags) => tags.filter((t) => t !== tag));
   }
+
   function addDesiredTag(tag) {
     desiredTags.update((tags) => (tags.includes(tag) ? tags : [...tags, tag]));
   }
   function removeDesiredTag(tag) {
     desiredTags.update((tags) => tags.filter((t) => t !== tag));
   }
+
   function addExcludedTag(tag) {
     excludedTags.update((tags) => (tags.includes(tag) ? tags : [...tags, tag]));
   }
@@ -64,7 +68,7 @@
 <!-- svelte-ignore a11y_label_has_associated_control -->
 <div class="filter-panel">
   <div class="filter-tile">
-    <!-- Numerische Filter: Spieleranzahl, Komplexität und Spielzeit -->
+    <!-- Numeric filters: player count, complexity, playtime -->
     <label>
       Player Count:
       <input
@@ -101,35 +105,39 @@
       on:change={updatePlaytimeRange}
     />
   </div>
-  <!-- Tag-Filter: Hier sind nur existierende Tags zulässig (allowNew=false) -->
+
+  <!-- Tag filters: only existing tags allowed (allowNew=false) -->
   <div class="filter-tile">
     <TagSelector
       label="benötigte Tags"
-      allTags={$allThemes}
+      allTags={$allTags}
       currentTags={$requiredTags}
       onAdd={addRequiredTag}
       onRemove={removeRequiredTag}
       placeholder="Enter required tag..."
+      allowNew={false}
     />
   </div>
   <div class="filter-tile">
     <TagSelector
       label="gewünschte Tags"
-      allTags={$allThemes}
+      allTags={$allTags}
       currentTags={$desiredTags}
       onAdd={addDesiredTag}
       onRemove={removeDesiredTag}
       placeholder="Enter desired tag..."
+      allowNew={false}
     />
   </div>
   <div class="filter-tile">
     <TagSelector
       label="auszuschließende Tags"
-      allTags={$allThemes}
+      allTags={$allTags}
       currentTags={$excludedTags}
       onAdd={addExcludedTag}
       onRemove={removeExcludedTag}
       placeholder="Enter excluded tag..."
+      allowNew={false}
     />
   </div>
 </div>
@@ -137,17 +145,14 @@
 <style>
   .filter-panel {
     display: flex;
-    flex-direction: row;
-    justify-content: space-between;
     gap: 20px;
   }
   .filter-tile {
+    flex: 1;
     display: flex;
-    width: 100%;
     flex-direction: column;
     gap: 10px;
     padding: 10px;
     border: 1px solid #ccc;
-    margin-bottom: 20px;
   }
 </style>

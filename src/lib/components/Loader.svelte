@@ -1,7 +1,6 @@
-<script>
-    // src/lib/components/Loader.svelte
-    // loading animations
+<!-- src/lib/components/Loader.svelte  -->
 
+<script>
     export let size = "1em";
 </script>
 

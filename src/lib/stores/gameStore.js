@@ -1,5 +1,8 @@
+// src/lib/stores/gameStore.js
+
 import { writable, derived } from "svelte/store";
-import { fetchGames } from "$lib/api.js";
+import { fetchGames, fetchPlayerRatings, refreshStaleCollection, manualUpdateCollection }
+    from '$lib/api/gamesApi.js';
 
 // Stores
 export const games = writable([]);

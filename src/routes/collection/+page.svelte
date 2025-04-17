@@ -1,14 +1,16 @@
 <script>
-  // IMPORTS
+  // src/routes/collection/+page.svelte
+
+  // general imports
   import { onMount } from "svelte";
   import { get } from "svelte/store";
 
-  // Komponenten
-  import ThemeEditor from "$lib/components/ThemeEditor.svelte";
+  // components
+  import TagEditor from "$lib/components/TagEditor.svelte";
   import RefreshModal from "$lib/components/RefreshModal.svelte";
   import Loader from "$lib/components/Loader.svelte";
 
-  // Utils
+  // utils
   import {
     formatBestPlayerCounts,
     formatPlayerCountRange,
@@ -16,7 +18,7 @@
   } from "$lib/utils.js";
   import { hoveredGameId } from "$lib/stores/generalStore.js";
 
-  // Spiele
+  // games
   import {
     fetchAndLoadGames,
     sortedGames,
@@ -24,38 +26,46 @@
     loading,
   } from "$lib/stores/gameStore.js";
 
-  // Themes
+  // tags
   import {
-    themes,
-    allThemes,
-    loadThemesForGames,
-    addThemeToGame,
-    removeThemeFromGame,
-  } from "$lib/stores/themeStore.js";
+    tags,
+    allTags,
+    loadTagsForGames,
+    addTagToGame,
+    removeTagFromGame,
+  } from "$lib/stores/tagStore.js";
 
-  import { API_BASE } from "$lib/api.js";
+  import { API_BASE } from '$lib/api/apibase.js';
+
 
   let showRefreshModal = false;
   let status = "loading";
   let refreshMessage = "";
 
+  // on mount, load games and then tags for them
+  onMount(async () => {
+    await fetchAndLoadGames();
+    await loadTagsForGames(get(sortedGames));
+  });
+
+  /**
+   * Trigger the "stale‑only" refresh (cron‑like)
+   * to add new games only
+   */
   async function refreshBGGData() {
     showRefreshModal = true;
     status = "loading";
     refreshMessage = "Loading...";
     try {
-      // Verwende die absolute URL basierend auf API_BASE
       const response = await fetch(`${API_BASE}/games/refresh`, {
         method: "POST",
       });
-      if (!response.ok) {
-        throw new Error("Refresh failed");
-      }
-      const data = await response.json();
+      if (!response.ok) throw new Error("Refresh failed");
+      const { newGamesCount = 0 } = await response.json();
       status = "done";
-      refreshMessage = `Refresh complete. (${data.newGamesCount || 0} new games)`;
-      // Lade Spiele im Anschluss neu
+      refreshMessage = `Refresh complete. (${newGamesCount} new games)`;
       await fetchAndLoadGames();
+      await loadTagsForGames(get(sortedGames));
     } catch (error) {
       console.error(error);
       status = "error";
@@ -63,29 +73,37 @@
     }
   }
 
-  function closeModal() {
-    showRefreshModal = false;
-  }
-
+  /**
+   * Manually trigger full import + stale‑games update
+   */
   async function manualUpdate() {
+    showRefreshModal = true;
+    status = "loading";
+    refreshMessage = "Checking for new games…";
     try {
       const res = await fetch(`${API_BASE}/games/manual-update`, {
         method: "POST",
       });
       if (!res.ok) throw new Error("Manual update failed");
-      alert("Manual update triggered");
+      const { newGamesCount = 0 } = await res.json();
+      status = "done";
+      refreshMessage = `Manual update complete. ${newGamesCount} new games added.`;
+      await fetchAndLoadGames();
+      await loadTagsForGames(get(sortedGames));
     } catch (e) {
       console.error(e);
-      alert("Manual update failed");
+      status = "error";
+      refreshMessage = "Manual update failed.";
     }
+  }
+
+  function closeModal() {
+    showRefreshModal = false;
   }
 </script>
 
-<button on:click={refreshBGGData}>&#8635; update collection</button>
-
-<!--
-<button on:click={manualUpdate}> Trigger Manual Update </button> 
--->
+<!-- Button to trigger manual update -->
+<button on:click={manualUpdate}>&#8635; update collection</button>
 
 {#if $loading}
   <div class="loading-container">
@@ -103,16 +121,14 @@
         <th on:click={() => updateSort("playtime")}>Playtime</th>
         <th on:click={() => updateSort("bggRating")}>Rating</th>
         <th>Best at</th>
-        <th>Themes</th>
+        <th>Tags</th>
         <th>Thumbnail</th>
       </tr>
     </thead>
     <tbody>
       {#each $sortedGames as game}
         <tr
-          on:mouseenter={() => {
-            hoveredGameId.set(game.bggId);
-          }}
+          on:mouseenter={() => hoveredGameId.set(game.bggId)}
           on:mouseleave={() => hoveredGameId.set(null)}
         >
           <td>{decodeEntities(game.name)}</td>
@@ -122,12 +138,13 @@
           <td>{game.bggRating ? game.bggRating.toFixed(2) : "N/A"}</td>
           <td>{formatBestPlayerCounts(game)}</td>
           <td>
-            <ThemeEditor
+            <!-- TagEditor shows current tags, allows add/remove -->
+            <TagEditor
               bggId={game.bggId}
-              themes={$themes}
-              allThemes={$allThemes}
-              addTheme={addThemeToGame}
-              removeTheme={removeThemeFromGame}
+              tags={$tags}
+              allTags={$allTags}
+              onAdd={addTagToGame}
+              onRemove={removeTagFromGame}
             />
           </td>
           <td>
@@ -145,6 +162,7 @@
   </table>
 {/if}
 
+<!-- Modal for showing loading/done/error -->
 <RefreshModal
   visible={showRefreshModal}
   {status}

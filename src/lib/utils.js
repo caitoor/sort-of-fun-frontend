@@ -1,4 +1,5 @@
-// frontend/src/lib/utils.js - Shared utility functions
+// src/lib/utils.js
+// Shared utility functions
 
 /**
  * Determines the best player counts based on votes.

@@ -1,28 +1,31 @@
+<!-- src/lib/components/TagSelector.svelte -->
 <script>
-  // Diese generische Komponente dient zur Eingabe und Verwaltung von Tags.
-  // Sie wird sowohl im Filter-Panel als auch im ThemeEditor verwendet.
+  // Generic component for entering and managing tags.
+  // Used in both the filter panel and the TagEditor.
   //
   // Props:
-  // - label: Überschrift (z. B. "benötigte Tags")
-  // - currentTags: Liste der aktuell ausgewählten Tags (Array)
-  // - onAdd: Callback, der aufgerufen wird, wenn ein Tag hinzugefügt wird
-  // - onRemove: Callback, der aufgerufen wird, wenn ein Tag entfernt wird
-  // - allTags: Liste aller Tags, die in der Collection existieren (für Autocomplete)
-  // - placeholder: Platzhaltertext im Eingabefeld
-  // - allowNew: Wenn true, dürfen auch noch nicht existierende Tags hinzugefügt werden.
+  // - label: heading text (e.g. "Required Tags")
+  // - currentTags: array of currently selected tags
+  // - onAdd: callback invoked when a new tag is added
+  // - onRemove: callback invoked when a tag is removed
+  // - allTags: array of all existing tags for autocomplete
+  // - placeholder: input placeholder text
+  // - allowNew: boolean, if true allows adding tags not in allTags
+
   export let label = "Tags";
   export let currentTags = [];
   export let onAdd = (tag) => {};
   export let onRemove = (tag) => {};
   export let allTags = [];
   export let placeholder = "Enter tag...";
-  export let allowNew = false; // Default: im Filter dürfen nur existierende Tags gewählt werden
+  export let allowNew = false;
 
-  let newTag = ""; // Bindet den aktuellen Eingabewert
-  let filteredSuggestions = []; // Gefilterte Vorschläge basierend auf newTag
+  // Local state for the input and suggestions
+  let newTag = "";
+  let filteredSuggestions = [];
   let showDropdown = false;
 
-  // Aktualisiere die Vorschläge dynamisch anhand des aktuellen Eingabetextes.
+  // Update suggestions whenever the input changes
   $: {
     const input = newTag.trim().toLowerCase();
     showDropdown = input.length > 0;
@@ -31,12 +34,12 @@
     );
   }
 
-  // Fügt einen Tag hinzu – je nach allowNew nur, wenn der Tag in allTags existiert.
+  // Add a tag, respecting allowNew if false
   function handleAdd() {
     const tagToAdd = newTag.trim();
     if (!tagToAdd) return;
     if (!allowNew) {
-      // Nur zulassen, wenn der Tag bereits existiert (case-insensitive)
+      // Only allow if tag exists in allTags (case-insensitive)
       const exists = allTags.some(
         (tag) => tag.toLowerCase() === tagToAdd.toLowerCase(),
       );
@@ -46,7 +49,7 @@
     newTag = "";
   }
 
-  // Bei Enter-Taste wird der Tag hinzugefügt.
+  // Add tag on Enter key
   function onKeyDown(e) {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -54,7 +57,7 @@
     }
   }
 
-  // Wird aufgerufen, wenn ein Vorschlag aus der Dropdown-Liste ausgewählt wird.
+  // When a suggestion is clicked
   function handleSelectSuggestion(tag) {
     newTag = "";
     showDropdown = false;
@@ -62,20 +65,21 @@
   }
 </script>
 
+<!-- Allow click handlers without additional key handling -->
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div class="tag-selector">
   <h5>{label}</h5>
-  <!-- Anzeige der bereits ausgewählten Tags -->
+  <!-- List of selected tags -->
   <div class="tag-list">
     {#each currentTags as tag}
       <span class="tag-item">
         {tag}
-        <button on:click={() => onRemove(tag)}>X</button>
+        <button on:click={() => onRemove(tag)}>×</button>
       </span>
     {/each}
   </div>
-  <!-- Eingabefeld zur Tag-Eingabe -->
+  <!-- Input and suggestion dropdown -->
   <div class="tag-input-container">
     <input
       type="text"
