@@ -1,16 +1,14 @@
+<!-- src/routes/collection/+page.svelte -->
 <script>
-  // src/routes/collection/+page.svelte
-
-  // general imports
   import { onMount } from "svelte";
   import { get } from "svelte/store";
 
-  // components
+  // Komponenten
   import TagEditor from "$lib/components/TagEditor.svelte";
   import RefreshModal from "$lib/components/RefreshModal.svelte";
   import Loader from "$lib/components/Loader.svelte";
 
-  // utils
+  // Utils
   import {
     formatBestPlayerCounts,
     formatPlayerCountRange,
@@ -18,15 +16,12 @@
   } from "$lib/utils.js";
   import { hoveredGameId } from "$lib/stores/generalStore.js";
 
-  // games
+  // Stores
   import {
     fetchAndLoadGames,
     sortedGames,
-    updateSort,
     loading,
   } from "$lib/stores/gameStore.js";
-
-  // tags
   import {
     tags,
     allTags,
@@ -35,47 +30,39 @@
     removeTagFromGame,
   } from "$lib/stores/tagStore.js";
 
-  import { API_BASE } from '$lib/api/apibase.js';
-
+  import { API_BASE } from "$lib/api/apibase.js";
+  import { writable } from "svelte/store";
 
   let showRefreshModal = false;
   let status = "loading";
   let refreshMessage = "";
 
-  // on mount, load games and then tags for them
+  // Akkordeon-State
+  const expanded = writable(new Set());
+
+  // onMount: Spiele + Tags laden
   onMount(async () => {
     await fetchAndLoadGames();
     await loadTagsForGames(get(sortedGames));
   });
 
-  /**
-   * Trigger the "stale‑only" refresh (cron‑like)
-   * to add new games only
-   */
-  async function refreshBGGData() {
-    showRefreshModal = true;
-    status = "loading";
-    refreshMessage = "Loading...";
-    try {
-      const response = await fetch(`${API_BASE}/games/refresh`, {
-        method: "POST",
-      });
-      if (!response.ok) throw new Error("Refresh failed");
-      const { newGamesCount = 0 } = await response.json();
-      status = "done";
-      refreshMessage = `Refresh complete. (${newGamesCount} new games)`;
-      await fetchAndLoadGames();
-      await loadTagsForGames(get(sortedGames));
-    } catch (error) {
-      console.error(error);
-      status = "error";
-      refreshMessage = "Refresh failed.";
-    }
+  // Hilfen
+  $: baseGames = $sortedGames.filter((g) => g.baseGameId == null);
+  $: expansionsByBase = $sortedGames
+    .filter((g) => g.baseGameId != null)
+    .reduce((map, exp) => {
+      (map[exp.baseGameId] ||= []).push(exp);
+      return map;
+    }, {});
+
+  function toggle(bggId) {
+    expanded.update((set) => {
+      if (set.has(bggId)) set.delete(bggId);
+      else set.add(bggId);
+      return set;
+    });
   }
 
-  /**
-   * Manually trigger full import + stale‑games update
-   */
   async function manualUpdate() {
     showRefreshModal = true;
     status = "loading";
@@ -102,70 +89,125 @@
   }
 </script>
 
-<!-- Button to trigger manual update -->
 <button on:click={manualUpdate}>&#8635; update collection</button>
 
 {#if $loading}
   <div class="loading-container">
     <Loader />
   </div>
-{:else if !$sortedGames.length}
+{:else if !baseGames.length}
   <p class="empty">No games found.</p>
 {:else}
   <table>
     <thead>
       <tr>
-        <th on:click={() => updateSort("name")}>Game</th>
-        <th on:click={() => updateSort("yearPublished")}>Year</th>
+        <th>Game</th>
+        <th>Year</th>
         <th>Players</th>
-        <th on:click={() => updateSort("playtime")}>Playtime</th>
-        <th on:click={() => updateSort("bggRating")}>Rating</th>
+        <th>Playtime</th>
+        <th>Rating</th>
         <th>Best at</th>
         <th>Tags</th>
         <th>Thumbnail</th>
       </tr>
     </thead>
     <tbody>
-      {#each $sortedGames as game}
+      {#each baseGames as game}
+        <!-- Basis-Spiel -->
         <tr
+          class="base-row"
+          on:click={() => toggle(game.bggId)}
           on:mouseenter={() => hoveredGameId.set(game.bggId)}
           on:mouseleave={() => hoveredGameId.set(null)}
         >
-          <td>{decodeEntities(game.name)}</td>
+          <td>
+            {decodeEntities(game.name)}
+            <span class="year-published">({game.yearPublished || "N/A"})</span>
+            {#if expansionsByBase[game.bggId]}
+              <span class="exp-count">
+                ({expansionsByBase[game.bggId].length} Erweiterung
+                {expansionsByBase[game.bggId].length > 1 ? "en" : ""})
+              </span>
+            {/if}
+          </td>
           <td>{game.yearPublished || "N/A"}</td>
           <td>{formatPlayerCountRange(game)}</td>
           <td>{game.playtime} min</td>
-          <td>{game.bggRating ? game.bggRating.toFixed(2) : "N/A"}</td>
+          <td>{game.bggRating?.toFixed(2) ?? "N/A"}</td>
           <td>{formatBestPlayerCounts(game)}</td>
           <td>
-            <!-- TagEditor shows current tags, allows add/remove -->
             <TagEditor
               bggId={game.bggId}
-              tags={$tags}
               allTags={$allTags}
-              onAdd={addTagToGame}
-              onRemove={removeTagFromGame}
+              addTag={addTagToGame}
+              removeTag={removeTagFromGame}
             />
           </td>
           <td>
             {#if game.thumbnail}
-              <img
-                src={game.thumbnail}
-                alt="{game.name} thumbnail"
-                class="thumbnail"
-              />
+              <img src={game.thumbnail} alt="thumb" class="thumbnail" />
             {/if}
           </td>
         </tr>
+
+        <!-- extensions when expanded -->
+        {#if $expanded.has(game.bggId) && expansionsByBase[game.bggId]}
+          {#each expansionsByBase[game.bggId] as exp}
+            <tr class="expansion-row">
+              <td colspan="1" class="expansion-name">
+                — {decodeEntities(exp.name)}
+              </td>
+              <td>{exp.yearPublished || "N/A"}</td>
+              <td>{formatPlayerCountRange(exp)}</td>
+              <td>{exp.playtime} min</td>
+              <td>{exp.bggRating?.toFixed(2) ?? "N/A"}</td>
+              <td>{formatBestPlayerCounts(exp)}</td>
+              <td>
+                <TagEditor
+                  bggId={exp.bggId}
+                  allTags={$allTags}
+                  addTag={addTagToGame}
+                  removeTag={removeTagFromGame}
+                />
+              </td>
+              <td>
+                {#if exp.thumbnail}
+                  <img src={exp.thumbnail} alt="thumb" class="thumbnail" />
+                {/if}
+              </td>
+            </tr>
+          {/each}
+        {/if}
       {/each}
     </tbody>
   </table>
 {/if}
 
-<!-- Modal for showing loading/done/error -->
 <RefreshModal
   visible={showRefreshModal}
   {status}
   message={refreshMessage}
   onClose={closeModal}
 />
+
+<style>
+  button {
+    margin-bottom: 0.5em;
+  }
+  .year-published,
+  .exp-count {
+    font-size: 0.8em;
+    color: #888;
+    margin-left: 0.3em;
+  }
+
+  .expansion-row td {
+    padding-left: .5em;
+    font-style: italic;
+  }
+  .expansion-name {
+    font-weight: 500;
+  }
+
+  
+</style>

@@ -1,33 +1,35 @@
 <!-- src/lib/components/GameTable.svelte -->
 <script>
-    import { filteredGames, playerCount } from "$lib/stores/gameFilterStore.js";
+    import TagList from "$lib/components/TagList.svelte";
+    import { filteredGames } from "$lib/stores/gameFilterStore.js";
     import { tags } from "$lib/stores/tagStore.js";
     import {
         formatBestPlayerCounts,
         formatPlayerCountRange,
         decodeEntities,
     } from "$lib/utils.js";
+    import { writable } from "svelte/store";
 
-    /**
-     * Estimate playtime for a given player count
-     */
-    function estimatePlaytime(game) {
-        const { minPlayers, maxPlayers, minPlaytime, maxPlaytime } = game;
+    // Akkordeon-State: Set mit aufgeklappten baseGameIds
+    const expanded = writable(new Set());
 
-        if (minPlaytime === maxPlaytime) {
-            return null;
-        }
+    // Helper: nur Basisspiele
+    $: baseGames = $filteredGames.filter((g) => g.baseGameId == null);
 
-        if (
-            !$playerCount ||
-            $playerCount < minPlayers ||
-            $playerCount > maxPlayers
-        ) {
-            return Math.round((minPlaytime + maxPlaytime) / 2);
-        }
+    // Helper: gruppiere Expansionen nach baseGameId
+    $: expansionsByBase = $filteredGames
+        .filter((g) => g.baseGameId != null)
+        .reduce((map, exp) => {
+            (map[exp.baseGameId] ||= []).push(exp);
+            return map;
+        }, {});
 
-        const factor = ($playerCount - minPlayers) / (maxPlayers - minPlayers);
-        return Math.round(minPlaytime + factor * (maxPlaytime - minPlaytime));
+    function toggle(bggId) {
+        expanded.update((set) => {
+            if (set.has(bggId)) set.delete(bggId);
+            else set.add(bggId);
+            return set;
+        });
     }
 </script>
 
@@ -43,10 +45,10 @@
         </tr>
     </thead>
     <tbody>
-        {#each $filteredGames as game}
-            <tr>
+        {#each baseGames as game}
+            <!-- Basis-Spiel Zeile -->
+            <tr class="base-row" on:click={() => toggle(game.bggId)}>
                 <td>
-                    <!-- Game name and year published -->
                     <a
                         href={"https://boardgamegeek.com/boardgame/" +
                             game.bggId}
@@ -57,17 +59,21 @@
                     <span class="year-published"
                         >({game.yearPublished || ""})</span
                     >
+                    {#if expansionsByBase[game.bggId]}
+                        <span class="exp-count">
+                            ({expansionsByBase[game.bggId].length} Erweiterung
+                            {expansionsByBase[game.bggId].length > 1
+                                ? "en"
+                                : ""})
+                        </span>
+                    {/if}
                     {#if $tags[game.bggId]?.length}
                         <div class="game-tags">
-                            {#each $tags[game.bggId] as tag}
-                                <span class="tag-item">{tag}</span>
-                            {/each}
+                            <TagList tags={$tags[game.bggId] || []} />
                         </div>
                     {/if}
                 </td>
-
                 <td>
-                    <!-- Player count range and best player counts -->
                     <div class="cell-container">
                         <div>{formatPlayerCountRange(game)}</div>
                         <div class="cell-sub">
@@ -75,82 +81,120 @@
                         </div>
                     </div>
                 </td>
-
                 <td>
-                    <!-- Playtime range and estimated playtime -->
                     <div class="cell-container">
-                        <div>
-                            {estimatePlaytime(game) || game.maxPlaytime} min
-                        </div>
+                        <div>{game.playtime} min</div>
                         {#if game.minPlaytime !== game.maxPlaytime}
                             <div class="cell-sub">
-                                ({game.minPlaytime} - {game.maxPlaytime})
+                                ({game.minPlaytime}–{game.maxPlaytime})
                             </div>
                         {/if}
                     </div>
                 </td>
-
+                <td>{game.complexity ? game.complexity.toFixed(2) : ""}</td>
                 <td>
-                    <!-- Complexity rating -->
                     <div class="cell-container">
-                        {game.complexity ? game.complexity.toFixed(2) : ""}
-                    </div>
-                </td>
-
-                <td>
-                    <!-- Scoring based on BGG rating -->
-                    <div class="cell-container">
-                        <div>
-                            {game.score ? game.score.toFixed(2) : "N/A"}
-                        </div>
-                        {#if game.bggRating && game.bggRating.toFixed(2) !== game.score.toFixed(2)}
+                        <div>{game.score?.toFixed(2) ?? "N/A"}</div>
+                        {#if game.bggRating && game.bggRating.toFixed(2) !== game.score?.toFixed(2)}
                             <div class="cell-sub">
                                 ({game.bggRating.toFixed(2)})
                             </div>
                         {/if}
                     </div>
                 </td>
-
                 <td>
                     {#if game.thumbnail}
                         <img
                             src={game.thumbnail}
-                            alt="{game.name} thumbnail"
+                            alt="thumb"
                             class="thumbnail"
                         />
                     {/if}
                 </td>
             </tr>
+
+            <!-- Erweiterungs-Zeilen, nur wenn aufgeklappt -->
+            {#if $expanded.has(game.bggId) && expansionsByBase[game.bggId]}
+                {#each expansionsByBase[game.bggId] as exp}
+                    <tr class="expansion-row">
+                        <td class="expansion-name"
+                            >— {decodeEntities(exp.name)}</td
+                        >
+                        <td>
+                            <div class="cell-container">
+                                <div>{formatPlayerCountRange(exp)}</div>
+                                <div class="cell-sub">
+                                    (Best: {formatBestPlayerCounts(exp)})
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="cell-container">
+                                <div>{exp.playtime} min</div>
+                                {#if exp.minPlaytime !== exp.maxPlaytime}
+                                    <div class="cell-sub">
+                                        ({exp.minPlaytime}–{exp.maxPlaytime})
+                                    </div>
+                                {/if}
+                            </div>
+                        </td>
+                        <td
+                            >{exp.complexity
+                                ? exp.complexity.toFixed(2)
+                                : ""}</td
+                        >
+                        <td>
+                            <div class="cell-container">
+                                <div>{exp.score?.toFixed(2) ?? "N/A"}</div>
+                                {#if exp.bggRating && exp.bggRating.toFixed(2) !== exp.score?.toFixed(2)}
+                                    <div class="cell-sub">
+                                        ({exp.bggRating.toFixed(2)})
+                                    </div>
+                                {/if}
+                            </div>
+                        </td>
+                        <td>
+                            {#if exp.thumbnail}
+                                <img
+                                    src={exp.thumbnail}
+                                    alt="thumb"
+                                    class="thumbnail"
+                                />
+                            {/if}
+                        </td>
+                    </tr>
+                {/each}
+            {/if}
         {/each}
     </tbody>
 </table>
 
 <style>
-    .game-tags {
-        font-size: 12px;
-        margin-top: 4px;
+    tr.base-row {
+        cursor: pointer;
     }
-
-    .tag-item {
-        background: #444;
-        color: white;
-        padding: 2px 6px;
-        margin: 2px;
-        border-radius: 12px;
+    .year-published,
+    .exp-count {
         font-size: 0.8em;
-        display: inline-block;
+        color: #888;
+        margin-left: 0.3em;
     }
 
     .cell-container {
         display: flex;
         flex-direction: column;
-        justify-content: center;
         align-items: center;
     }
-
-    .cell-sub,
-    .year-published {
+    .cell-sub {
         font-size: 0.8em;
         color: #888;
+    }
+
+    .expansion-row td {
+        padding-left: 1.5em;
+        font-style: italic;
+    }
+    .expansion-name {
+        font-weight: 500;
     }
 </style>
