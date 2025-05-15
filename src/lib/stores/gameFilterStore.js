@@ -97,7 +97,7 @@ export const filteredGames = derived(
         // base coefficients
         const estimated = getEstimatedPlaytime(game, $playerCount);
         const complexityFactor = getComplexityCoefficient(
-          game.complexity,
+          game.averageWeight,
           $minComplexity,
           $maxComplexity
         );

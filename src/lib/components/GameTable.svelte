@@ -91,7 +91,7 @@
                         {/if}
                     </div>
                 </td>
-                <td>{game.complexity ? game.complexity.toFixed(2) : ""}</td>
+                <td>{game.averageWeight ? game.averageWeight.toFixed(2) : ""}</td>
                 <td>
                     <div class="cell-container">
                         <div>{game.score?.toFixed(2) ?? "N/A"}</div>
@@ -139,8 +139,8 @@
                             </div>
                         </td>
                         <td
-                            >{exp.complexity
-                                ? exp.complexity.toFixed(2)
+                            >{exp.averageWeight
+                                ? exp.averageWeight.toFixed(2)
                                 : ""}</td
                         >
                         <td>
